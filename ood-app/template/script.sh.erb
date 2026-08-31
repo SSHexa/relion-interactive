@@ -118,9 +118,22 @@ create_wrapper() {
     local cmd=$1
     local bin_path=${2:-/usr/local/bin/$cmd}
     local wrapper="${SESSION_DIR}/bin/${cmd}"
+    # Wrapper resolves apptainer/singularity at RUNTIME rather than baking
+    # the path detected at launch. On some sites the binary moves between
+    # launch and job execution, or the wrapper is invoked from a subprocess
+    # with a slightly different environment.
     cat > "${wrapper}" << WRAPPER_EOF
 #!/bin/bash
-exec ${SINGULARITY_BIN} exec ${BIND_ARGS} "${RELION_CONTAINER}" "${bin_path}" "\$@"
+_bin=""
+for _p in /usr/bin/apptainer /usr/local/bin/apptainer /usr/bin/singularity /usr/local/bin/singularity /opt/singularity/bin/singularity; do
+    [ -x "\$_p" ] && { _bin="\$_p"; break; }
+done
+[ -z "\$_bin" ] && _bin=\$(command -v apptainer 2>/dev/null || command -v singularity 2>/dev/null)
+if [ -z "\$_bin" ]; then
+    echo "ERROR: apptainer/singularity not found on PATH" >&2
+    exit 127
+fi
+exec "\$_bin" exec ${BIND_ARGS} "${RELION_CONTAINER}" "${bin_path}" "\$@"
 WRAPPER_EOF
     chmod +x "${wrapper}"
 }
