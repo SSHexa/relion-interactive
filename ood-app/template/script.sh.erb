@@ -10,6 +10,17 @@
 set -e
 
 # ------------------------------------------------------------------------
+# Load site-specific env file. OOD does NOT source this automatically
+# inside the batch job — we do it here explicitly. Change the app name
+# below (relion5_webui) if you installed the OOD app under a different
+# name. Missing env file = fall back to the defaults below (works for
+# a truly generic install where you dropped things at /opt/relion5).
+# ------------------------------------------------------------------------
+for _envfile in /etc/ood/config/apps/relion5_webui/env; do
+    [ -f "$_envfile" ] && { set -a; . "$_envfile"; set +a; }
+done
+
+# ------------------------------------------------------------------------
 # Site config (env-var driven; see env.example for what each does)
 # ------------------------------------------------------------------------
 BACKEND_DIR="${RELION_BACKEND_DIR:-/opt/relion5/backend}"
