@@ -36,7 +36,7 @@ sudo cp -r ood-app /var/www/ood/apps/sys/relion5_webui
 
 # 5. Configure — copy the example env and edit for your site
 sudo mkdir -p /etc/ood/config/apps/relion5_webui
-sudo cp ood-app/template/env.example /etc/ood/config/apps/relion5_webui/env
+sudo cp ood-app/env.example /etc/ood/config/apps/relion5_webui/env
 sudo vim /etc/ood/config/apps/relion5_webui/env   # set RELION_CLUSTER, RELION_CONTAINER
 ```
 

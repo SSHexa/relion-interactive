@@ -111,7 +111,7 @@ Now the app appears in the OOD dashboard under **Interactive Apps** → **RELION
 
 ```bash
 sudo mkdir -p /etc/ood/config/apps/relion5_webui
-sudo cp ood-app/template/env.example /etc/ood/config/apps/relion5_webui/env
+sudo cp ood-app/env.example /etc/ood/config/apps/relion5_webui/env
 sudo chmod 644 /etc/ood/config/apps/relion5_webui/env
 sudo vim /etc/ood/config/apps/relion5_webui/env
 ```

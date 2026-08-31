@@ -66,7 +66,7 @@ Then copy the example env file and edit it for your site:
 
 ```bash
 sudo mkdir -p /etc/ood/config/apps/relion5_webui
-sudo cp ood-app/template/env.example /etc/ood/config/apps/relion5_webui/env
+sudo cp ood-app/env.example /etc/ood/config/apps/relion5_webui/env
 sudo vim /etc/ood/config/apps/relion5_webui/env
 ```
 
