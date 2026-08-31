@@ -1,0 +1,11 @@
+---
+name: "RELION 5 Web UI"
+category: Interactive Apps
+subcategory: Cryo-EM
+role: batch_connect
+icon: fas://microscope
+description: |
+  Browser-based interface for the RELION 5 single-particle cryo-EM pipeline.
+  Runs as an Interactive App: allocates a compute node via Slurm, starts a
+  Flask backend + React frontend, and gives you a "Connect" button that
+  opens the UI in your browser.

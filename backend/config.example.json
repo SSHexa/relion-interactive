@@ -1,0 +1,25 @@
+{
+  "_comment": "Generic single-filesystem Slurm cluster. Copy this to config.json and adjust paths to match your site. Every field can also be overridden by the corresponding RELION_* environment variable — see docs/CONFIGURATION.md.",
+
+  "cluster_mode": "generic",
+
+  "relion_bin_path": "/usr/local/bin",
+  "relion_container": "/opt/relion5/relion.sif",
+  "singularity_bin": "/usr/bin/apptainer",
+  "container_bind": "/home:/home",
+  "ctffind_executable": "/usr/local/bin/ctffind",
+  "mpi_run": "mpirun",
+
+  "slurm_partition": "compute",
+
+  "project_base_dir": "${HOME}/relion_projects",
+  "additional_project_dirs": [],
+  "execution_mode": "slurm",
+
+  "environment": "production",
+  "host": "0.0.0.0",
+  "port": 5000,
+  "debug": false,
+
+  "cors_origins": ["*"]
+}

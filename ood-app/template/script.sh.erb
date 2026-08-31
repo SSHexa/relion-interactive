@@ -1,0 +1,231 @@
+#!/bin/bash
+#
+# RELION 5 Web UI — OOD Interactive App launch script
+#
+# All site-specific paths come from environment variables read from
+# /etc/ood/config/apps/relion5_webui/env (see template/env.example for the
+# full list and sensible defaults). Nothing in this file should be edited
+# per-site — set env vars instead.
+#
+set -e
+
+# ------------------------------------------------------------------------
+# Site config (env-var driven; see env.example for what each does)
+# ------------------------------------------------------------------------
+BACKEND_DIR="${RELION_BACKEND_DIR:-/opt/relion5/backend}"
+FRONTEND_DIR="${RELION_FRONTEND_DIR:-/opt/relion5/frontend}"
+RELION_CONTAINER="${RELION_CONTAINER:-/opt/relion5/relion.sif}"
+CONTAINER_BIND="${RELION_CONTAINER_BIND:-/home:/home}"
+CTFFIND_IN_CONTAINER="${RELION_CTFFIND_IN_CONTAINER:-/opt/ctffind/bin/ctffind}"
+
+# Working directory (from form)
+cd "<%= context.working_dir %>" || {
+    echo "ERROR: cannot access project directory <%= context.working_dir %>"
+    exit 1
+}
+
+# Session dir for runtime files (wrappers, logs, generated proxy script)
+export SESSION_DIR="${HOME}/ondemand/data/sys/dashboard/batch_connect/sys/relion5_webui/output/${SLURM_JOB_ID:-$$}"
+mkdir -p "${SESSION_DIR}/bin"
+
+# ------------------------------------------------------------------------
+# Sanity checks
+# ------------------------------------------------------------------------
+if [ ! -f "${RELION_CONTAINER}" ]; then
+    echo "ERROR: RELION container not found at ${RELION_CONTAINER}"
+    echo "       Set RELION_CONTAINER in the OOD app env file to override."
+    exit 1
+fi
+
+if [ ! -d "${BACKEND_DIR}" ]; then
+    echo "ERROR: backend not found at ${BACKEND_DIR}"
+    echo "       Set RELION_BACKEND_DIR in the OOD app env file."
+    exit 1
+fi
+
+if [ ! -d "${FRONTEND_DIR}" ]; then
+    echo "ERROR: frontend build not found at ${FRONTEND_DIR}"
+    echo "       Run 'npm ci && npm run build' in the frontend/ dir and copy"
+    echo "       build/ to ${FRONTEND_DIR}, or set RELION_FRONTEND_DIR."
+    exit 1
+fi
+
+# ------------------------------------------------------------------------
+# Locate singularity / apptainer
+# ------------------------------------------------------------------------
+SINGULARITY_BIN=""
+for path in /usr/bin/apptainer /usr/local/bin/apptainer \
+            /usr/bin/singularity /usr/local/bin/singularity \
+            /opt/singularity/bin/singularity; do
+    if [ -x "$path" ]; then
+        SINGULARITY_BIN="$path"
+        break
+    fi
+done
+if [ -z "$SINGULARITY_BIN" ]; then
+    SINGULARITY_BIN=$(command -v apptainer 2>/dev/null || command -v singularity 2>/dev/null || echo "")
+fi
+if [ -z "$SINGULARITY_BIN" ]; then
+    echo "ERROR: neither apptainer nor singularity found on PATH"
+    exit 1
+fi
+echo "Using container runtime: ${SINGULARITY_BIN}"
+
+# ------------------------------------------------------------------------
+# Build one --bind arg per comma-separated entry in CONTAINER_BIND.
+# Example: RELION_CONTAINER_BIND=/home:/home,/scratch:/scratch
+# ------------------------------------------------------------------------
+BIND_ARGS=""
+IFS=',' read -ra BIND_PARTS <<< "${CONTAINER_BIND}"
+for one in "${BIND_PARTS[@]}"; do
+    one_trimmed="$(echo "$one" | xargs)"  # strip whitespace
+    if [ -n "$one_trimmed" ]; then
+        BIND_ARGS="${BIND_ARGS} --bind ${one_trimmed}"
+    fi
+done
+
+# ------------------------------------------------------------------------
+# Wrapper scripts so `relion_*` and `ctffind` from the RELION UI (Python
+# subprocess launches) resolve to containerized binaries transparently.
+# ------------------------------------------------------------------------
+create_wrapper() {
+    local cmd=$1
+    local bin_path=${2:-/usr/local/bin/$cmd}
+    local wrapper="${SESSION_DIR}/bin/${cmd}"
+    cat > "${wrapper}" << WRAPPER_EOF
+#!/bin/bash
+exec ${SINGULARITY_BIN} exec ${BIND_ARGS} "${RELION_CONTAINER}" "${bin_path}" "\$@"
+WRAPPER_EOF
+    chmod +x "${wrapper}"
+}
+
+for cmd in relion_refine relion_refine_mpi relion_autopick relion_autopick_mpi \
+           relion_ctffind relion_ctffind_mpi relion_run_ctffind \
+           relion_motioncor relion_motioncor_mpi relion_run_motioncorr \
+           relion_class2d relion_class2d_mpi relion_class3d relion_class3d_mpi \
+           relion_extract relion_extract_mpi relion_import relion_preprocess \
+           relion_preprocess_mpi relion_polish relion_polish_mpi \
+           relion_postprocess relion_mask_create relion_display; do
+    create_wrapper "$cmd"
+done
+
+create_wrapper "ctffind" "${CTFFIND_IN_CONTAINER}"
+create_wrapper "mpirun" "mpirun"
+
+# ------------------------------------------------------------------------
+# Environment for the backend
+# ------------------------------------------------------------------------
+export PATH="${SESSION_DIR}/bin:${PATH}"
+export RELION_BIN_PATH="${SESSION_DIR}/bin"
+export RELION_CTFFIND_EXECUTABLE="${SESSION_DIR}/bin/ctffind"
+export RELION_CONTAINER
+export RELION_CONTAINER_BIND="${CONTAINER_BIND}"
+export RELION_APPTAINER_BIN="${SINGULARITY_BIN}"
+export RELION_PROJECT_DIR="<%= context.working_dir %>"
+export RELION_EXECUTION_MODE="${RELION_EXECUTION_MODE:-slurm}"
+export RELION_CLUSTER_MODE="${RELION_CLUSTER_MODE:-generic}"
+export RELION_DEFAULT_PROJECTS_DIR="${RELION_DEFAULT_PROJECTS_DIR:-<%= context.working_dir %>}"
+export RELION_HIDDEN_PROJECTS="${RELION_HIDDEN_PROJECTS:-}"
+
+# Optional: additional bind paths that the backend passes to sbatch scripts
+# (used by advanced setups; safe to leave unset)
+[ -n "${RELION_ADDITIONAL_PROJECT_DIRS:-}" ] && export RELION_ADDITIONAL_PROJECT_DIRS
+
+# Optional user-site packages (only prepend if the directory exists)
+USER_SITE="${HOME}/.local/lib/python3.10/site-packages"
+[ -d "${USER_SITE}" ] && export PYTHONPATH="${USER_SITE}:${PYTHONPATH}"
+[ -d "${HOME}/.local/bin" ] && export PATH="${HOME}/.local/bin:${PATH}"
+
+# ------------------------------------------------------------------------
+# Allocate a port for the backend and start it
+# ------------------------------------------------------------------------
+export port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
+echo "Backend port: ${port}"
+
+# Pick a Python that has flask+gunicorn. Prefer a venv shipped with the
+# backend, then user local, then system python3.
+PY=""
+for cand in "${BACKEND_DIR}/venv/bin/python3" \
+            "${HOME}/.local/bin/python3" \
+            "$(command -v python3)"; do
+    if [ -x "$cand" ] && "$cand" -c 'import flask, gunicorn' >/dev/null 2>&1; then
+        PY="$cand"
+        break
+    fi
+done
+if [ -z "$PY" ]; then
+    echo "ERROR: no python3 with flask+gunicorn found."
+    echo "       Install backend/requirements.txt into a venv at"
+    echo "       ${BACKEND_DIR}/venv, or into the user's site-packages."
+    exit 1
+fi
+echo "Using python: ${PY}"
+
+# Write a tiny WSGI wrapper that (a) serves the built frontend as static
+# files at /, (b) forwards /api and /socket.io to the Flask app. This
+# avoids running two processes.
+WRAPPER_DIR="${SESSION_DIR}/wsgi_wrapper"
+mkdir -p "${WRAPPER_DIR}"
+cat > "${WRAPPER_DIR}/wsgi.py" << 'WSGI_EOF'
+import os, sys, mimetypes
+from pathlib import Path
+
+sys.path.insert(0, os.environ['RELION_BACKEND_DIR'])
+os.chdir(os.environ['RELION_BACKEND_DIR'])
+os.environ.setdefault('RELION_WSGI', '1')
+from app import app as _flask_app
+
+FRONTEND = Path(os.environ['RELION_FRONTEND_DIR'])
+
+def _serve_static(path, start_response):
+    p = FRONTEND / path.lstrip('/')
+    if not p.is_file():
+        p = FRONTEND / 'index.html'
+    if not p.is_file():
+        start_response('404 Not Found', [('Content-Type', 'text/plain')])
+        return [b'not found']
+    ctype = mimetypes.guess_type(str(p))[0] or 'application/octet-stream'
+    body = p.read_bytes()
+    start_response('200 OK', [('Content-Type', ctype), ('Content-Length', str(len(body)))])
+    return [body]
+
+def app(environ, start_response):
+    path = environ.get('PATH_INFO', '/')
+    if path.startswith('/api') or path.startswith('/socket.io'):
+        return _flask_app(environ, start_response)
+    return _serve_static(path, start_response)
+WSGI_EOF
+
+export RELION_BACKEND_DIR RELION_FRONTEND_DIR
+
+echo "Starting gunicorn on 0.0.0.0:${port}"
+"${PY}" -m gunicorn \
+    --worker-class gthread --workers 1 --threads 8 \
+    --bind "0.0.0.0:${port}" \
+    --access-logfile "${SESSION_DIR}/gunicorn.log" \
+    --error-logfile "${SESSION_DIR}/gunicorn.log" \
+    --capture-output \
+    --pythonpath "${WRAPPER_DIR},${BACKEND_DIR}" \
+    wsgi:app &
+GUNICORN_PID=$!
+
+# Wait for it to be ready before OOD polls the port
+for i in $(seq 1 30); do
+    if curl -sf "http://localhost:${port}/api/pipeline" >/dev/null 2>&1 \
+       || curl -sf "http://localhost:${port}/" >/dev/null 2>&1; then
+        echo "Backend is ready on port ${port}"
+        break
+    fi
+    if ! kill -0 "${GUNICORN_PID}" 2>/dev/null; then
+        echo "ERROR: gunicorn died. Log:"
+        tail -50 "${SESSION_DIR}/gunicorn.log" || true
+        exit 1
+    fi
+    sleep 1
+done
+
+# OOD's batch_connect basic template reads $port to build the connect URL.
+export PORT="${port}"
+
+# Keep the job alive for the duration of the walltime
+wait

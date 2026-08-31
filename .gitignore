@@ -1,0 +1,49 @@
+# --- Never commit site config or state ---
+backend/config.json
+backend/config.local.json
+backend/*.env
+backend/.env
+backend/state/
+backend/sessions/
+backend/saved_projects/
+ood-app/env
+ood-app/env.local
+*.bak-*
+*.pre-*
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+env/
+.venv/
+
+# --- Node / frontend build ---
+frontend/node_modules/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.eslintcache
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*~
+
+# --- Session / auto-memory / telemetry ---
+.claude-flow/
+.claude/
+memory/

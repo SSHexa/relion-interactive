@@ -1,0 +1,37 @@
+{
+  "_comment": "Azure CycleCloud / dual-filesystem reference config. Only use this pattern if your OOD host and compute nodes see DIFFERENT shared filesystems (e.g. OOD's /shared is NFS, compute nodes have their own local /shared that mounts OOD's via NFS at /sched-shared). See docs/CYCLECLOUD.md for full details.",
+
+  "cluster_mode": "cyclecloud",
+
+  "relion_bin_path": "/usr/local/bin",
+  "relion_container": "/shared/apps/relion/relion.sif",
+  "singularity_bin": "/usr/bin/apptainer",
+  "container_bind": "/shared:/shared",
+  "ctffind_executable": "/usr/local/bin/ctffind",
+  "mpi_run": "mpirun",
+
+  "slurm_partition": "htc",
+
+  "project_base_dir": "${HOME}/relion_projects",
+  "additional_project_dirs": [],
+  "execution_mode": "slurm",
+
+  "environment": "production",
+  "host": "0.0.0.0",
+  "port": 5000,
+  "debug": false,
+
+  "_comment_proxy": "sbatch/squeue/scancel are forwarded over SSH to a separate CycleCloud-managed Slurm scheduler VM. Point these at your local proxy scripts installed under /etc/ood/config/clusters.d/<id>/bin_overrides/.",
+  "sbatch_command": "/etc/ood/config/clusters.d/slurm_ccw/bin_overrides/sbatch.sh",
+  "squeue_command": "/etc/ood/config/clusters.d/slurm_ccw/bin_overrides/squeue.sh",
+  "scancel_command": "/etc/ood/config/clusters.d/slurm_ccw/bin_overrides/scancel.sh",
+
+  "_comment_cc": "SSH target for the scheduler VM. The backend runs SSH commands there to prep project directories before submitting jobs.",
+  "cc_scheduler_host": "scheduler.example.internal",
+  "cc_scheduler_user": "clusteruser",
+
+  "_comment_nfs": "Compute nodes mount OOD's /shared here (at /sched-shared) so RELION jobs can access user data. Set to the OOD host's private hostname or IP.",
+  "ood_nfs_server": "ood.example.internal",
+
+  "cors_origins": ["https://your-ood-hostname.example.com"]
+}
