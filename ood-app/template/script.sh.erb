@@ -111,52 +111,25 @@ for one in "${BIND_PARTS[@]}"; do
 done
 
 # ------------------------------------------------------------------------
-# Wrapper scripts so `relion_*` and `ctffind` from the RELION UI (Python
-# subprocess launches) resolve to containerized binaries transparently.
+# We do NOT create per-binary wrapper scripts. RELION's job_manager
+# already knows how to wrap commands in singularity/apptainer when
+# relion_container is configured — it produces commands like:
+#   apptainer exec --bind X --bind Y container /usr/local/bin/relion_import ...
+# If we also wrapped, RELION would end up double-wrapping (running
+# apptainer inside apptainer) which fails because container images
+# don't ship apptainer.
+#
+# Instead we just export the container config to the backend and it
+# builds the correct singularity command per job.
 # ------------------------------------------------------------------------
-create_wrapper() {
-    local cmd=$1
-    local bin_path=${2:-/usr/local/bin/$cmd}
-    local wrapper="${SESSION_DIR}/bin/${cmd}"
-    # Wrapper resolves apptainer/singularity at RUNTIME rather than baking
-    # the path detected at launch. On some sites the binary moves between
-    # launch and job execution, or the wrapper is invoked from a subprocess
-    # with a slightly different environment.
-    cat > "${wrapper}" << WRAPPER_EOF
-#!/bin/bash
-_bin=""
-for _p in /usr/bin/apptainer /usr/local/bin/apptainer /usr/bin/singularity /usr/local/bin/singularity /opt/singularity/bin/singularity; do
-    [ -x "\$_p" ] && { _bin="\$_p"; break; }
-done
-[ -z "\$_bin" ] && _bin=\$(command -v apptainer 2>/dev/null || command -v singularity 2>/dev/null)
-if [ -z "\$_bin" ]; then
-    echo "ERROR: apptainer/singularity not found on PATH" >&2
-    exit 127
-fi
-exec "\$_bin" exec ${BIND_ARGS} "${RELION_CONTAINER}" "${bin_path}" "\$@"
-WRAPPER_EOF
-    chmod +x "${wrapper}"
-}
-
-for cmd in relion_refine relion_refine_mpi relion_autopick relion_autopick_mpi \
-           relion_ctffind relion_ctffind_mpi relion_run_ctffind \
-           relion_motioncor relion_motioncor_mpi relion_run_motioncorr \
-           relion_class2d relion_class2d_mpi relion_class3d relion_class3d_mpi \
-           relion_extract relion_extract_mpi relion_import relion_preprocess \
-           relion_preprocess_mpi relion_polish relion_polish_mpi \
-           relion_postprocess relion_mask_create relion_display; do
-    create_wrapper "$cmd"
-done
-
-create_wrapper "ctffind" "${CTFFIND_IN_CONTAINER}"
-create_wrapper "mpirun" "mpirun"
 
 # ------------------------------------------------------------------------
-# Environment for the backend
+# Environment for the backend. RELION_BIN_PATH points INSIDE the container
+# (/usr/local/bin) — the backend prepends singularity_bin + bind mounts +
+# container path when it builds each job's command.
 # ------------------------------------------------------------------------
-export PATH="${SESSION_DIR}/bin:${PATH}"
-export RELION_BIN_PATH="${SESSION_DIR}/bin"
-export RELION_CTFFIND_EXECUTABLE="${SESSION_DIR}/bin/ctffind"
+export RELION_BIN_PATH="/usr/local/bin"
+export RELION_CTFFIND_EXECUTABLE="${CTFFIND_IN_CONTAINER}"
 export RELION_CONTAINER
 export RELION_CONTAINER_BIND="${CONTAINER_BIND}"
 export RELION_APPTAINER_BIN="${SINGULARITY_BIN}"
