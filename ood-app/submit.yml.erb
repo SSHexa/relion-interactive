@@ -4,10 +4,14 @@ batch_connect:
 script:
   native:
     - "-p"
-    - "<%= ENV['RELION_PARTITION'] || 'compute' %>"
+    - "<%= bc_queue %>"
     - "-c"
     - "<%= bc_num_slots.to_i %>"
     - "-t"
     - "<%= bc_num_hours.to_i %>:00:00"
     - "--mem"
-    - "<%= ENV['RELION_MEM_PER_JOB'] || '12G' %>"
+    - "<%= bc_memory %>"
+    - "-J"
+    # Static job name — OOD's auto-generated name is "sys/dashboard/sys/<app>"
+    # which contains "/" characters that Slurm rejects.
+    - "relion5-webui"

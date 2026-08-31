@@ -1,0 +1,55 @@
+---
+# OOD cluster id — must match a file in /etc/ood/config/clusters.d/<id>.yml
+# on the host. Site admins: edit this value directly. (This file is plain
+# YAML — OOD does NOT evaluate ERB in files named form.yml, only in
+# form.yml.erb.)
+cluster: "slurm"
+
+attributes:
+  bc_num_hours:
+    widget: number_field
+    label: "Number of hours"
+    value: 4
+    min: 1
+    max: 24
+    step: 1
+
+  bc_num_slots:
+    widget: number_field
+    label: "Number of CPUs"
+    value: 4
+    min: 1
+    max: 32
+    step: 1
+
+  bc_queue:
+    widget: select
+    label: "Slurm Partition"
+    # Site admins: edit the option list below to match your cluster's
+    # partitions. First value is the label shown to users, second is what's
+    # actually passed to sbatch as -p.
+    options:
+      - ["compute", "compute"]
+    value: "compute"
+
+  bc_memory:
+    widget: text_field
+    label: "Memory"
+    value: "12G"
+    help: "e.g. 8G, 16G, 32G"
+
+  working_dir:
+    widget: text_field
+    label: "Project Directory"
+    # This value is a plain literal — customize per-site. If you need
+    # per-user resolution, use form.yml.erb instead of form.yml and put
+    # <%= "#{ENV['HOME']}/relion_projects" %> here.
+    value: "/home/relion_projects"
+    help: "Directory containing your RELION project data. Will be created if missing."
+
+form:
+  - bc_num_hours
+  - bc_num_slots
+  - bc_queue
+  - bc_memory
+  - working_dir
