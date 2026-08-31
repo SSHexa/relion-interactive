@@ -2,32 +2,47 @@
 #
 # RELION 5 Web UI — OOD Interactive App launch script
 #
-# All site-specific paths come from environment variables read from
-# /etc/ood/config/apps/relion5_webui/env (see template/env.example for the
-# full list and sensible defaults). Nothing in this file should be edited
-# per-site — set env vars instead.
+# Site-specific paths (backend/frontend/container/bind mounts) are read at
+# ERB render time from /etc/ood/config/apps/relion5_webui/env — an OOD
+# convention: one file per app, KEY=value per line. See ood-app/env.example
+# for the schema. Values are baked into this script when OOD generates it;
+# the compute node never touches the env file directly (that file lives on
+# the OOD host).
 #
+<%
+require 'pathname'
+# Load the env file on the OOD host at instantiation time.
+# Change the app name below if you installed this app under a different name.
+site_env_path = "/etc/ood/config/apps/relion5_webui/env"
+site_env = {}
+if File.exist?(site_env_path)
+  File.readlines(site_env_path).each do |line|
+    line = line.strip
+    next if line.empty? || line.start_with?('#') || !line.include?('=')
+    k, v = line.split('=', 2)
+    v = v.strip.gsub(/\A["']|["']\z/, '')  # strip surrounding quotes
+    site_env[k.strip] = v
+  end
+end
+# Helper: value from env file, or fallback
+def _sv(env, key, default); env.fetch(key, default); end
+%>
 set -e
 
 # ------------------------------------------------------------------------
-# Load site-specific env file. OOD does NOT source this automatically
-# inside the batch job — we do it here explicitly. Change the app name
-# below (relion5_webui) if you installed the OOD app under a different
-# name. Missing env file = fall back to the defaults below (works for
-# a truly generic install where you dropped things at /opt/relion5).
+# Site config — baked in at ERB render time from the env file above
 # ------------------------------------------------------------------------
-for _envfile in /etc/ood/config/apps/relion5_webui/env; do
-    [ -f "$_envfile" ] && { set -a; . "$_envfile"; set +a; }
-done
+BACKEND_DIR="<%= _sv(site_env, 'RELION_BACKEND_DIR', '/opt/relion5/backend') %>"
+FRONTEND_DIR="<%= _sv(site_env, 'RELION_FRONTEND_DIR', '/opt/relion5/frontend') %>"
+RELION_CONTAINER="<%= _sv(site_env, 'RELION_CONTAINER', '/opt/relion5/relion.sif') %>"
+CONTAINER_BIND="<%= _sv(site_env, 'RELION_CONTAINER_BIND', '/home:/home') %>"
+CTFFIND_IN_CONTAINER="<%= _sv(site_env, 'RELION_CTFFIND_IN_CONTAINER', '/opt/ctffind/bin/ctffind') %>"
 
-# ------------------------------------------------------------------------
-# Site config (env-var driven; see env.example for what each does)
-# ------------------------------------------------------------------------
-BACKEND_DIR="${RELION_BACKEND_DIR:-/opt/relion5/backend}"
-FRONTEND_DIR="${RELION_FRONTEND_DIR:-/opt/relion5/frontend}"
-RELION_CONTAINER="${RELION_CONTAINER:-/opt/relion5/relion.sif}"
-CONTAINER_BIND="${RELION_CONTAINER_BIND:-/home:/home}"
-CTFFIND_IN_CONTAINER="${RELION_CTFFIND_IN_CONTAINER:-/opt/ctffind/bin/ctffind}"
+# Extras that the backend reads (exported below so gunicorn's env has them)
+export RELION_CLUSTER_MODE="<%= _sv(site_env, 'RELION_CLUSTER_MODE', 'generic') %>"
+export RELION_DEFAULT_PROJECTS_DIR="<%= _sv(site_env, 'RELION_DEFAULT_PROJECTS_DIR', '') %>"
+export RELION_ADDITIONAL_PROJECT_DIRS="<%= _sv(site_env, 'RELION_ADDITIONAL_PROJECT_DIRS', '') %>"
+export RELION_HIDDEN_PROJECTS="<%= _sv(site_env, 'RELION_HIDDEN_PROJECTS', '') %>"
 
 # Working directory (from form)
 cd "<%= context.working_dir %>" || {
