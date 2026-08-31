@@ -54,8 +54,10 @@ Common: **`PermissionError` on mkdir/symlink** — user can't write to the proje
 - **URL missing trailing slash** — `homepage: "."` makes asset paths resolve relative to the current URL. If you're at `/rnode/host/port` (no slash), assets 404. Enforce a 301 redirect at the reverse proxy:
 
   ```apache
-  RedirectMatch permanent "^(/rnode/[^/]+/[0-9]+)$" "$1/"
+  RedirectMatch permanent "^(/rnode/[a-zA-Z0-9.-]+/[0-9]+)$" "$1/"
   ```
+
+  **This directive is REQUIRED on the OOD host.** Add it inside your OOD portal's `<VirtualHost *:443>` block in `/etc/apache2/sites-enabled/ood-portal.conf` and reload Apache. Without it: clicking Connect on any session lands on Apache's default "It works!" page instead of the RELION UI, because the browser strips the trailing slash and Apache's `LocationMatch "^/rnode/(?<host>...)/(?<port>\d+)"` fails to match, causing fallthrough to DocumentRoot.
 
 - **`frontend/` copy missing files** — verify `frontend/build/static/` contains `css/` and `js/` subdirs. If not, rebuild.
 

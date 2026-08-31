@@ -1,14 +1,27 @@
 <%-
-   next_url = "#{base_url}/index.html"
+  # Defend against empty base_url (session's connection.yml had no port).
+  # Without this, next_url would become "/index.html" and the browser would
+  # be redirected to Apache's DocumentRoot (default "It works!" page).
+  base = base_url.to_s.strip
+  next_url = base.empty? ? nil : "#{base.chomp('/')}/"
 -%>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <% if next_url %>
   <meta http-equiv="refresh" content="0; URL='<%= next_url %>'" />
+  <% end %>
   <title>RELION 5 Web UI</title>
 </head>
 <body>
-  <p>Redirecting to <a href="<%= next_url %>">RELION 5 Web UI</a>...</p>
+  <% if next_url %>
+    <p>Redirecting to <a href="<%= next_url %>">RELION 5 Web UI</a>…</p>
+  <% else %>
+    <p><strong>Session started but no connection URL is available.</strong></p>
+    <p>This usually means the compute node did not report its port. Check
+    <code>connection.yml</code> in the session's output directory. See
+    <a href="/pun/sys/dashboard/batch_connect/sessions">My Interactive Sessions</a>.</p>
+  <% end %>
 </body>
 </html>
