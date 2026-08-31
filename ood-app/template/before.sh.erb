@@ -1,0 +1,17 @@
+# before.sh — sourced by OOD's basic batch_connect wrapper BEFORE it
+# writes connection.yml and BEFORE script.sh runs. Purpose: allocate the
+# TCP port here (synchronously) so the wrapper sees a valid $port when it
+# generates connection.yml. Without this, connection.yml has an empty
+# port field, the /rnode/HOST/<port>/ URL in the OOD dashboard fails to
+# match Apache's LocationMatch, and the browser hits Apache's default
+# page instead of the app.
+
+export port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
+
+# $host is already set to $(hostname) by the wrapper. Override with a
+# routable IPv4 if the hostname resolves to link-local IPv6 only (common
+# on cloud compute nodes).
+_ip=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -1)
+[ -n "${_ip}" ] && export host="${_ip}"
+
+echo "before.sh: exported host=${host} port=${port}"

@@ -163,10 +163,15 @@ USER_SITE="${HOME}/.local/lib/python3.10/site-packages"
 [ -d "${HOME}/.local/bin" ] && export PATH="${HOME}/.local/bin:${PATH}"
 
 # ------------------------------------------------------------------------
-# Allocate a port for the backend and start it
+# Backend port was allocated by before.sh (which runs before OOD writes
+# connection.yml). If for some reason before.sh didn't set it, fall back.
 # ------------------------------------------------------------------------
-export port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
-echo "Backend port: ${port}"
+if [ -z "${port:-}" ]; then
+    export port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
+    echo "Backend port (fallback allocation): ${port}"
+else
+    echo "Backend port: ${port}"
+fi
 
 # Pick a Python that has flask+gunicorn. Prefer a venv shipped with the
 # backend, then user local, then system python3.
