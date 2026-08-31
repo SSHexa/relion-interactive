@@ -1,29 +1,28 @@
 <%-
-  # OOD exposes the compute-node host/port via `connect.host` and `connect.port`
-  # (read from connection.yml). Guard against either being missing so we never
-  # redirect to a bad URL that would land the browser on Apache's default page.
   host = connect.host rescue nil
   port = connect.port rescue nil
-  next_url = (host && port) ? "/rnode/#{host}/#{port}/" : nil
 -%>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <% if next_url %>
-  <meta http-equiv="refresh" content="0; URL='<%= next_url %>'" />
-  <% end %>
-  <title>RELION 5 Web UI</title>
-</head>
-<body>
-  <% if next_url %>
-    <p>Opening RELION 5 Web UI at <code><%= host %>:<%= port %></code>…</p>
-    <p>If nothing happens, <a href="<%= next_url %>">click here</a>.</p>
-  <% else %>
-    <p><strong>Session started but no connection URL is available.</strong></p>
-    <p>The compute node did not report its port. Check
+<% if host && port %>
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">RELION 5 Web UI</h5>
+      <p class="text-muted small">
+        Session running on <code><%= host %>:<%= port %></code>
+      </p>
+      <a href="/rnode/<%= host %>/<%= port %>/" class="btn btn-primary" target="_blank" rel="noopener">
+        <i class="fa fa-external-link"></i> Open RELION 5 Web UI
+      </a>
+      <p class="text-muted small mt-2">
+        Opens in a new tab. Close the tab or delete this session
+        (in Interactive Sessions) to end it.
+      </p>
+    </div>
+  </div>
+<% else %>
+  <div class="alert alert-warning">
+    Session started but no connection URL is available yet — waiting for
+    the compute node to report its port. Check
     <code>connection.yml</code> in the session's output directory. See
-    <a href="/pun/sys/dashboard/batch_connect/sessions">My Interactive Sessions</a>.</p>
-  <% end %>
-</body>
-</html>
+    <a href="/pun/sys/dashboard/batch_connect/sessions">My Interactive Sessions</a>.
+  </div>
+<% end %>
