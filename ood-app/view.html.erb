@@ -1,9 +1,10 @@
 <%-
-  # Defend against empty base_url (session's connection.yml had no port).
-  # Without this, next_url would become "/index.html" and the browser would
-  # be redirected to Apache's DocumentRoot (default "It works!" page).
-  base = base_url.to_s.strip
-  next_url = base.empty? ? nil : "#{base.chomp('/')}/"
+  # OOD exposes the compute-node host/port via `connect.host` and `connect.port`
+  # (read from connection.yml). Guard against either being missing so we never
+  # redirect to a bad URL that would land the browser on Apache's default page.
+  host = connect.host rescue nil
+  port = connect.port rescue nil
+  next_url = (host && port) ? "/rnode/#{host}/#{port}/" : nil
 -%>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,10 +17,11 @@
 </head>
 <body>
   <% if next_url %>
-    <p>Redirecting to <a href="<%= next_url %>">RELION 5 Web UI</a>…</p>
+    <p>Opening RELION 5 Web UI at <code><%= host %>:<%= port %></code>…</p>
+    <p>If nothing happens, <a href="<%= next_url %>">click here</a>.</p>
   <% else %>
     <p><strong>Session started but no connection URL is available.</strong></p>
-    <p>This usually means the compute node did not report its port. Check
+    <p>The compute node did not report its port. Check
     <code>connection.yml</code> in the session's output directory. See
     <a href="/pun/sys/dashboard/batch_connect/sessions">My Interactive Sessions</a>.</p>
   <% end %>
