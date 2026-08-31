@@ -70,13 +70,16 @@ You get `frontend/build/` — a static SPA. Note: `package.json` has `"homepage"
 
 ```bash
 sudo mkdir -p /opt/relion5
-sudo cp -r backend  /opt/relion5/backend
-sudo cp -r frontend/build /opt/relion5/frontend
+sudo cp -r backend         /opt/relion5/backend
+sudo cp -r frontend/build  /opt/relion5/frontend
+sudo cp -r particle-picker /opt/relion5/particle-picker   # separate SPA for interactive picking
 
 # Backend Python deps
 sudo python3 -m venv /opt/relion5/backend/venv
 sudo /opt/relion5/backend/venv/bin/pip install -r /opt/relion5/backend/requirements.txt
 ```
+
+**About `particle-picker/`:** it's a standalone React SPA that the backend serves at `/particle-picker/` (see `app.py`, blueprint `particle_picker_api.py`). It MUST live at `../particle-picker` relative to the backend dir — the backend hardcodes `Path(__file__).parent.parent / 'particle-picker'`. If you install to a non-standard layout, symlink it into place.
 
 The launcher script tries these Python interpreters in order:
 1. `${RELION_BACKEND_DIR}/venv/bin/python3`

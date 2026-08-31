@@ -41,6 +41,15 @@ rsync -avz --delete \
 rsync -avz --delete \
     frontend/build/ "${OOD_USER}@${OOD_HOST}:${REMOTE_ROOT}/frontend/"
 
+# Particle picker SPA (served at /particle-picker/ from the backend)
+if [ -d particle-picker/build ]; then
+    rsync -avz --delete \
+        particle-picker/build/ "${OOD_USER}@${OOD_HOST}:${REMOTE_ROOT}/particle-picker/"
+elif [ -d particle-picker ]; then
+    rsync -avz --delete \
+        particle-picker/ "${OOD_USER}@${OOD_HOST}:${REMOTE_ROOT}/particle-picker/"
+fi
+
 # OOD app package (only if explicitly requested; usually one-shot install)
 if [ "${INSTALL_APP}" = "1" ]; then
     echo "Also installing OOD app package"

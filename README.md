@@ -12,36 +12,41 @@ A browser-based interface for the [RELION 5](https://relion.readthedocs.io/) sin
 
 Any facility running Open OnDemand on a Slurm cluster who wants a web UI for RELION 5 instead of X11-forwarding the native GUI. Tested on university HPC, private lab clusters, and Azure CycleCloud.
 
-## Quick start
+## Quick start (recommended — prebuilt release)
+
+No Node.js needed. Grab the latest tarball, drop files into place, edit one env file.
 
 ```bash
-# 1. Clone
-git clone https://github.com/<your-org>/relion5-ood-interactive.git
-cd relion5-ood-interactive
+# 1. Download + unpack the latest release
+VERSION=$(curl -s https://api.github.com/repos/<your-org>/relion5-ood-interactive/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')
+curl -L "https://github.com/<your-org>/relion5-ood-interactive/releases/download/v${VERSION}/relion5-ood-interactive-${VERSION}.tar.gz" | tar -xz
+cd "relion5-ood-interactive-${VERSION}"
 
-# 2. Build the frontend
-cd frontend && npm ci && npm run build && cd ..
+# 2. Install the backend + built frontend + particle picker to a compute-node-readable path
+sudo cp -r backend         /opt/relion5/backend
+sudo cp -r frontend        /opt/relion5/frontend
+sudo cp -r particle-picker /opt/relion5/particle-picker
 
-# 3. Copy the backend + frontend build to a location your compute nodes can read
-sudo cp -r backend /opt/relion5/backend
-sudo cp -r frontend/build /opt/relion5/frontend
-
-# 4. Install Python deps into a venv the compute nodes can also reach
+# 3. Install Python deps into a venv the compute nodes can reach
 sudo python3 -m venv /opt/relion5/backend/venv
 sudo /opt/relion5/backend/venv/bin/pip install -r /opt/relion5/backend/requirements.txt
 
-# 5. Install the OOD Interactive App
+# 4. Install the OOD Interactive App package
 sudo cp -r ood-app /var/www/ood/apps/sys/relion5_webui
 
-# 6. Configure — copy the example env and edit for your site
+# 5. Configure — copy the example env and edit for your site
 sudo mkdir -p /etc/ood/config/apps/relion5_webui
 sudo cp ood-app/template/env.example /etc/ood/config/apps/relion5_webui/env
-sudo vim /etc/ood/config/apps/relion5_webui/env   # set RELION_CLUSTER, RELION_CONTAINER, etc.
-
-# 7. Users see "RELION 5 Web UI" under Interactive Apps in their OOD dashboard.
+sudo vim /etc/ood/config/apps/relion5_webui/env   # set RELION_CLUSTER, RELION_CONTAINER
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for a walked-through version, and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full install.
+Users now see "RELION 5 Web UI" under Interactive Apps in their OOD dashboard.
+
+### Alternative: build from source
+
+If you'd rather build the frontend yourself (customizing UI, running from a branch, air-gapped from GitHub releases), see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Requires Node.js 20+ somewhere.
+
+See [QUICKSTART.md](QUICKSTART.md) for a walked-through version.
 
 ## Documentation
 

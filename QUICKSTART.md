@@ -45,13 +45,16 @@ For this quickstart we'll use `/opt/relion5/`:
 
 ```bash
 sudo mkdir -p /opt/relion5
-sudo cp -r backend /opt/relion5/backend
-sudo cp -r frontend/build /opt/relion5/frontend
+sudo cp -r backend         /opt/relion5/backend
+sudo cp -r frontend/build  /opt/relion5/frontend
+sudo cp -r particle-picker /opt/relion5/particle-picker   # standalone SPA for picking
 
 # Backend deps into a venv that lives with the backend
 sudo python3 -m venv /opt/relion5/backend/venv
 sudo /opt/relion5/backend/venv/bin/pip install -r /opt/relion5/backend/requirements.txt
 ```
+
+The particle-picker dir MUST live at `../particle-picker` relative to the backend — the backend serves it at `/particle-picker/` when a user clicks a Particle Picker action in the UI.
 
 ## 4. Install the OOD Interactive App
 

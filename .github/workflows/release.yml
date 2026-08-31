@@ -1,0 +1,94 @@
+name: Release
+
+# Trigger: whenever a version tag is pushed, e.g.
+#   git tag v1.0.0
+#   git push --tags
+#
+# Result: GitHub builds the frontend, packages everything into a tarball,
+# and publishes it as a GitHub Release. Downstream admins install with:
+#   curl -L https://github.com/<org>/<repo>/releases/download/v1.0.0/relion5-ood-interactive-1.0.0.tar.gz | tar -xz
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create a Release + upload assets
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Assemble release tarball
+        run: |
+          set -e
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          STAGE="relion5-ood-interactive-${VERSION}"
+          mkdir -p "${STAGE}"
+
+          # Everything an admin needs to deploy
+          cp -r ood-app          "${STAGE}/"
+          cp -r backend          "${STAGE}/"
+          cp -r frontend/build   "${STAGE}/frontend"
+          cp -r particle-picker  "${STAGE}/"   # standalone SPA for interactive picking
+          cp -r docs             "${STAGE}/"
+          cp -r scripts          "${STAGE}/"
+          cp README.md QUICKSTART.md LICENSE .gitignore "${STAGE}/"
+
+          # Prune Python cruft that shouldn't ship
+          find "${STAGE}" -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find "${STAGE}" -type f -name '*.pyc' -delete
+
+          # Tarball for the release
+          tar -czf "${STAGE}.tar.gz" "${STAGE}"
+          sha256sum "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
+          ls -la "${STAGE}.tar.gz" "${STAGE}.tar.gz.sha256"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.version.outputs.VERSION }}"
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          files: |
+            relion5-ood-interactive-${{ steps.version.outputs.VERSION }}.tar.gz
+            relion5-ood-interactive-${{ steps.version.outputs.VERSION }}.tar.gz.sha256
+          body: |
+            ## Install
+
+            ```bash
+            VERSION=${{ steps.version.outputs.VERSION }}
+            curl -L https://github.com/${{ github.repository }}/releases/download/v${VERSION}/relion5-ood-interactive-${VERSION}.tar.gz | tar -xz
+            cd relion5-ood-interactive-${VERSION}
+            ```
+
+            Then follow [QUICKSTART.md](./QUICKSTART.md) — the frontend is already built (`frontend/` is the compiled SPA, no Node.js required at install time).
+
+            ### Verify download
+
+            ```bash
+            curl -LO https://github.com/${{ github.repository }}/releases/download/v${VERSION}/relion5-ood-interactive-${VERSION}.tar.gz.sha256
+            sha256sum -c relion5-ood-interactive-${VERSION}.tar.gz.sha256
+            ```
