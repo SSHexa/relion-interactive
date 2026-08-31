@@ -222,7 +222,8 @@ def app(environ, start_response):
     return _serve_static(path, start_response)
 WSGI_EOF
 
-export RELION_BACKEND_DIR RELION_FRONTEND_DIR
+export RELION_BACKEND_DIR="${BACKEND_DIR}"
+export RELION_FRONTEND_DIR="${FRONTEND_DIR}"
 
 echo "Starting gunicorn on 0.0.0.0:${port}"
 "${PY}" -m gunicorn \
