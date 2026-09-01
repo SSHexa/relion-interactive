@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSocketEvent } from '../contexts/SocketContext';
 import {
   Box,
   Paper,
@@ -140,12 +141,21 @@ const Dashboard: React.FC = () => {
   // Initial load (runs once). WebSocket support was removed because OOD's
   // reverse proxy doesn't forward upgrade requests; under OOD the helper
   // returned a no-op mock and live updates always came from the polling
-  // effect below. If a future deployment supports WebSocket, reintroduce
-  // the subscription as a separate hook (don't reinstate the no-op stub).
+  // effect below. Additionally, SocketProvider is now wired up in App.tsx,
+  // so we subscribe to live pipeline_update / process_status_change events
+  // and refresh the pipeline immediately when the backend pushes one.
   useEffect(() => {
     loadPipeline();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Live push updates from backend SocketIO — refresh the pipeline immediately.
+  const handlePipelineUpdate = useCallback(() => {
+    loadPipeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useSocketEvent('pipeline_update', handlePipelineUpdate);
+  useSocketEvent('process_status_change', handlePipelineUpdate);
 
   // Adaptive polling: 5s when jobs are active, 30s when idle
   useEffect(() => {

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSocketEvent } from '../contexts/SocketContext';
 import {
   Box,
   Paper,
@@ -295,10 +296,13 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ processId, jobType, proje
     loadResults();
     loadJobStatus();
 
-    // Set up auto-refresh for running jobs
+    // Fallback polling in case the SocketIO connection drops (below).
+    // Refresh both status AND the results panel so live values like Total
+    // Motion / Early Motion update as the job progresses, not just status.
     statusIntervalRef.current = setInterval(() => {
       loadJobStatus();
-    }, 2000); // Refresh every 2 seconds
+      loadResults();
+    }, 5000);
 
     return () => {
       if (statusIntervalRef.current) {
@@ -307,6 +311,20 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ processId, jobType, proje
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processId]);
+
+  // Live push updates: when the backend emits process_status_change for THIS
+  // job, refresh the panel immediately (no waiting on the 5s poll).
+  const handleStatusChange = useCallback(
+    (payload: { id?: string; state?: string }) => {
+      if (payload && payload.id === processId) {
+        loadJobStatus();
+        loadResults();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [processId]
+  );
+  useSocketEvent('process_status_change', handleStatusChange);
 
   // Stop auto-refresh when job completes
   // Status codes: 0=scheduled, 1=running, 2=finished, 3=aborted, 4=failed
