@@ -745,7 +745,7 @@ fi
 # those locks are held, dpkg -i fails and /usr/bin/singularity never gets
 # created, causing the job to die with exit 127. Wait for the lock, retry,
 # and verify the binary exists before proceeding.
-if ! command -v singularity &>/dev/null && ! command -v apptainer &>/dev/null; then
+if [ ! -x /usr/bin/apptainer ]; then
     if [ -f /shared/apps/apptainer.deb ]; then
         # Wait up to 120s for any other apt/dpkg process to release the lock
         for i in $(seq 1 60); do
@@ -766,8 +766,8 @@ if ! command -v singularity &>/dev/null && ! command -v apptainer &>/dev/null; t
 fi
 # Verify singularity is now available — fail loudly if not, so run.err
 # shows the real cause instead of a cryptic "No such file" from line 51.
-if ! command -v singularity >/dev/null 2>&1; then
-    echo "FATAL: singularity/apptainer not available on $(hostname)" >&2
+if [ ! -x /usr/bin/apptainer ]; then
+    echo "FATAL: /usr/bin/apptainer not available on $(hostname)" >&2
     echo "FATAL: /shared/apps/apptainer.deb exists: $([ -f /shared/apps/apptainer.deb ] && echo yes || echo no)" >&2
     exit 2
 fi
